@@ -7,12 +7,12 @@ function TodoList({ todos, onDeleteTodo, onToggleComplete }) {
           <input
             type="checkbox"
             checked={todo.completed}
-            onChange={() => onToggleComplete(todo.id, todo.completed)}
+            onChange={() => onToggleComplete(todo._id, todo.completed)}
           />
           <span className={todo.completed ? "completed" : ""}>{todo.text}</span>
         </div>
   
-        <button className="delete-btn" onClick={() => onDeleteTodo(todo.id)}>
+        <button className="delete-btn" onClick={() => onDeleteTodo(todo._id)}>
           Delete
         </button>
       </li>

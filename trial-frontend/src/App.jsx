@@ -63,7 +63,7 @@ function App() {
         throw new Error("Failed to delete todo");
       }
 
-      setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
+      setTodos((prevTodos) => prevTodos.filter((todo) => todo._id !== id));
     } catch (error) {
       console.error("Failed to delete todo:", error);
     }
@@ -88,7 +88,7 @@ function App() {
       const updatedTodo = await response.json();
 
       setTodos((prevTodos) =>
-        prevTodos.map((todo) => (todo.id === id ? updatedTodo : todo))
+        prevTodos.map((todo) => (todo._id === id ? updatedTodo : todo))
       );
     } catch (error) {
       console.error("Failed to update todo:", error);
