@@ -1,0 +1,26 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/trial-project
+            git pull
+            echo "MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}" > .env
+            echo "MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}" >> .env
+            docker-compose down
+            docker-compose up -d --build
+            echo "Deploy finished！"
