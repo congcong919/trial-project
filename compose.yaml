@@ -1,8 +1,13 @@
 services:
   mongodb:
     image: mongo:7
-    ports:
-      - "27017:27017"
+    # ports:
+    # - "27017:27017" # For Local Test
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     volumes:
       - mongo_data:/data/db
 
@@ -11,7 +16,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - MONGO_URL=mongodb://mongodb:27017/todos
+      - MONGO_URL=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/trial-project?authSource=admin
     depends_on:
       - mongodb
 
