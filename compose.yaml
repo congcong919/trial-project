@@ -1,8 +1,8 @@
 services:
   mongodb:
     image: mongo:7
-    # ports:
-    # - "27017:27017" # For Local Test
+    ports:
+      - "127.0.0.1:27017:27017"
     env_file:
       - .env
     environment:
