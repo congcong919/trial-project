@@ -18,6 +18,7 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+          cache-dependency-path: ./trial-frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: ./trial-frontend
@@ -65,4 +66,4 @@ jobs:
             echo "MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}" >> .env
             docker-compose down
             docker-compose up -d --build
-            echo "Deploy finished！"
+            echo "Deploy finished!"
