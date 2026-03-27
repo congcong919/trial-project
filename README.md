@@ -188,7 +188,8 @@ This approach means:
 - Rebuild and restart Docker containers
 
 **EC2 Auto-restart** (`/etc/crontab`)
-- On every EC2 reboot, automatically pulls latest code and starts Docker services
+- On every EC2 reboot, crontab automatically triggers `start.sh`
+- `start.sh` pulls latest code from GitHub and starts Docker services
 
 ---
 
