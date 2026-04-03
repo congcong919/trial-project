@@ -7,7 +7,6 @@ const User = require("../models/User")
 const ACCESS_SECRET  = process.env.JWT_SECRET      || "access_secret_change_in_production"
 const REFRESH_SECRET = process.env.REFRESH_SECRET  || "refresh_secret_change_in_production"
 
-const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000  // 7 days in ms
 
 function issueTokens(res, userId) {
   const accessToken = jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: "15m" })
@@ -17,7 +16,7 @@ function issueTokens(res, userId) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: REFRESH_COOKIE_MAX_AGE,
+    maxAge: parseInt(process.env.REFRESH_COOKIE_MAX_AGE),
     path: "/api/auth",
   })
 

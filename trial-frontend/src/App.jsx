@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useAuth } from "./context/AuthContext"
 import "./App.css"
 import TodoForm from "./components/TodoForm"
 import TodoList from "./components/TodoList"
@@ -7,66 +8,13 @@ import SignUp from "./pages/SignUp"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 
-// Access token lives only in memory — lost on page refresh (intentional).
-// Refresh token is in an httpOnly cookie managed by the browser.
-let accessToken = null
-
 function App() {
+  const { isAuthenticated, signOut, tryRefresh, fetchWithAuth } = useAuth()
   const [page, setPage] = useState("loading")
   const [todos, setTodos] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // --- Auth helpers ---
-
-  const signOut = async () => {
-    accessToken = null
-    setTodos([])
-    await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    })
-    setPage("signin")
-  }
-
-  const tryRefresh = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      })
-      if (!res.ok) return false
-      const data = await res.json()
-      accessToken = data.accessToken
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // Wraps fetch: on 401, attempts one silent token refresh then retries.
-  const fetchWithAuth = async (url, options = {}) => {
-    const makeRequest = () =>
-      fetch(url, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-          Authorization: `Bearer ${accessToken}`,
-        },
-        credentials: "include",
-      })
-
-    let res = await makeRequest()
-    if (res.status === 401) {
-      const refreshed = await tryRefresh()
-      if (!refreshed) {
-        signOut()
-        return res
-      }
-      res = await makeRequest()
-    }
-    return res
-  }
+  
 
   // On mount: try to restore session via refresh token cookie.
   useEffect(() => {
@@ -76,6 +24,12 @@ function App() {
   useEffect(() => {
     if (page === "todos") fetchTodos()
   }, [page])
+
+  const handleSignOut = async () => {
+    setTodos([])
+    await signOut()
+    setPage("signin")
+  }
 
   // --- Todo operations ---
 
@@ -148,7 +102,7 @@ function App() {
   if (page === "signin") {
     return (
       <SignIn
-        onSignedIn={(token) => { accessToken = token; setPage("todos") }}
+        onSignedIn={() => setPage("todos")}
         onGoSignUp={() => setPage("signup")}
       />
     )
@@ -157,7 +111,6 @@ function App() {
   if (page === "signup") {
     return (
       <SignUp
-        onSignedUp={(token) => { accessToken = token; setPage("todos") }}
         onGoSignIn={() => setPage("signin")}
       />
     )
@@ -168,7 +121,7 @@ function App() {
       <div className="todo-container">
         <div className="todo-header">
           <h1>To-Do List</h1>
-          <button className="signout-btn" onClick={signOut}>
+          <button className="signout-btn" onClick={handleSignOut}>
             Sign Out
           </button>
         </div>

@@ -1,9 +1,11 @@
 import { useState } from "react"
+import { useAuth } from "../context/AuthContext"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 
 export default function SignUp({ onSignedUp, onGoSignIn }) {
-  // onSignedUp(accessToken) — parent stores the token in memory
+  // signedIn(accessToken) — stores the token in memory
+  const { signIn } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -25,7 +27,8 @@ export default function SignUp({ onSignedUp, onGoSignIn }) {
         setError(data.message || "Registration failed")
         return
       }
-      onSignedUp(data.accessToken)
+      signIn(data.accessToken)
+      onSignedUp()
     } catch {
       setError("Network error. Please try again.")
     } finally {
