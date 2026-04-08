@@ -8,6 +8,11 @@ const app = express()
 const router = require('./router')
 const authRouter = require('./routes/auth')
 
+// Start the email worker alongside the server. In a scaled deployment this
+// would run as a separate process (e.g. a dedicated worker Dockerfile), but
+// for a single-instance setup requiring it here is sufficient.
+require('./workers/emailWorker')
+
 const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017/todos"
 
 app.use(cors({
