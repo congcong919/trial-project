@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken")
 const User = require("../models/User")
 const redis = require("../config/redis")
 const emailQueue = require("../queues/emailQueue")
-const authRateLimiter = require("../middleware/rateLimiter")
+const {authRegisterRateLimiter, authLoginRateLimiter} = require("../middleware/rateLimiter")
 
 const ACCESS_SECRET  = process.env.JWT_SECRET      || "access_secret_change_in_production"
 const REFRESH_SECRET = process.env.REFRESH_SECRET  || "refresh_secret_change_in_production"
@@ -30,7 +30,7 @@ function issueTokens(res, userId) {
 
 // POST /auth/register
 // Rate limiter applied here (not globally) so only auth endpoints are throttled.
-router.post("/register", authRateLimiter, async (req, res) => {
+router.post("/register", authRegisterRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
     if (!email || !password) {
@@ -74,7 +74,7 @@ router.post("/register", authRateLimiter, async (req, res) => {
 
 // POST /auth/login
 // Rate limiter applied here to protect against brute-force password guessing.
-router.post("/login", authRateLimiter, async (req, res) => {
+router.post("/login", authLoginRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
     if (!email || !password) {
