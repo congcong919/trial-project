@@ -53,7 +53,6 @@ export default function ToDoPage() {
 
   const handleSignOut = async () => {
     await signOut()
-    navigate("/")
   }
 
   return (

@@ -15,12 +15,24 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/signin" element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignIn />} />
-      <Route path="/signup" element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignUp />} />
-      <Route path="/todos" element={isAuthenticated ? <ToDoPage /> : <Navigate to="/signin" replace />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+  <Route
+    path="/"
+    element={isAuthenticated ? <Navigate to="/todos" replace /> : <LandingPage />}
+  />
+  <Route
+    path="/signin"
+    element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignIn />}
+  />
+  <Route
+    path="/signup"
+    element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignUp />}
+  />
+  <Route
+    path="/todos"
+    element={isAuthenticated ? <ToDoPage /> : <Navigate to="/" />}
+  />
+  <Route path="*" element={<Navigate to={isAuthenticated ? "/todos" : "/"} replace />} />
+</Routes>
   )
 }
 
