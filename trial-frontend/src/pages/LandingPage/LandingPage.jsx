@@ -1,6 +1,10 @@
+import { useNavigate } from "react-router-dom"
 import "./LandingPage.css"
 
-export default function LandingPage({ onGetStarted, onSignIn }) {
+export default function LandingPage() {
+  const navigate = useNavigate()
+  const onGetStarted = () => navigate("/signup")
+  const onSignIn = () => navigate("/signin")
   return (
     <div className="lp-root">
       {/* ── NAV ── */}

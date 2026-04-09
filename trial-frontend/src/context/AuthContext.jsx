@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 
 const AuthContext = createContext()
 const API_BASE_URL = import.meta.env.VITE_API_KEY
@@ -7,10 +7,13 @@ let accessToken = null
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
 
+  // On mount: try to restore session via refresh token cookie.
+  useEffect(() => {
+    tryRefresh().finally(() => setAuthReady(true))
+  }, [])
 
-  // --- Auth helpers ---
-  
   const tryRefresh = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -66,7 +69,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, signIn, signOut, tryRefresh, fetchWithAuth }}>
+    <AuthContext.Provider value={{ isAuthenticated, authReady, signIn, signOut, tryRefresh, fetchWithAuth }}>
       {children}
     </AuthContext.Provider>
   )

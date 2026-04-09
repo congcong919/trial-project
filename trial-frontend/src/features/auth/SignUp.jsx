@@ -1,11 +1,12 @@
 import { useState } from "react"
+import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 
-export default function SignUp({ onSignedUp, onGoSignIn }) {
-  // signedIn(accessToken) — stores the token in memory
+export default function SignUp() {
   const { signIn } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -28,7 +29,7 @@ export default function SignUp({ onSignedUp, onGoSignIn }) {
         return
       }
       signIn(data.accessToken)
-      onSignedUp()
+      navigate("/todos", { replace: true })
     } catch {
       setError("Network error. Please try again.")
     } finally {
@@ -39,6 +40,7 @@ export default function SignUp({ onSignedUp, onGoSignIn }) {
   return (
     <div className="app">
       <div className="auth-card">
+        <Link to="/" className="link-btn back-btn">← Back to home</Link>
         <h1>Create Account</h1>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -69,9 +71,7 @@ export default function SignUp({ onSignedUp, onGoSignIn }) {
         </form>
         <p className="auth-switch">
           Already have an account?{" "}
-          <button className="link-btn" onClick={onGoSignIn}>
-            Sign In
-          </button>
+          <Link to="/signin" className="link-btn">Sign In</Link>
         </p>
       </div>
     </div>
