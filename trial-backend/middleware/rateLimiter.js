@@ -11,10 +11,13 @@ const createAuthRateLimiter = (name) =>
     limit: 5,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    store: new RedisStore({
-      sendCommand: (...args) => redis.call(...args),
-      prefix: `rl:${name}:`,
-    }),
+    skipSuccessfulRequests: true,
+
+    keyGenerator: (req) => {
+      const email = (req.body?.email || '').toLowerCase().trim()
+      return `${name}:${req.ip}:${email}`
+    },
+    
     handler: (_req, res) => {
       res.status(429).json({ message: 'Too many attempts, please try again in 15 minutes' })
     },
