@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "./context/AuthContext"
-import "./App.css"
-import TodoForm from "./components/TodoForm"
-import TodoList from "./components/TodoList"
-import SignIn from "./pages/SignIn"
-import SignUp from "./pages/SignUp"
+import "./styles/App.css"
+import TodoForm from "./features/todos/TodoForm"
+import TodoList from "./features/todos/TodoList"
+import SignIn from "./features/auth/SignIn"
+import SignUp from "./features/auth/SignUp"
+import LandingPage from "./pages/LandingPage/LandingPage"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 
@@ -18,7 +19,7 @@ function App() {
 
   // On mount: try to restore session via refresh token cookie.
   useEffect(() => {
-    tryRefresh().then((ok) => setPage(ok ? "todos" : "signin"))
+    tryRefresh().then((ok) => setPage(ok ? "todos" : "landing"))
   }, [])
 
   useEffect(() => {
@@ -96,6 +97,15 @@ function App() {
       <div className="app">
         <p className="status-text">Loading...</p>
       </div>
+    )
+  }
+
+  if (page === "landing") {
+    return (
+      <LandingPage
+        onGetStarted={() => setPage("signup")}
+        onSignIn={() => setPage("signin")}
+      />
     )
   }
 
