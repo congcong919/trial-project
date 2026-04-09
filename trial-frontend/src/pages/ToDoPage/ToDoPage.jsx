@@ -52,9 +52,8 @@ export default function ToDoPage() {
   }
 
   const handleSignOut = async () => {
-    setTodos([])
     await signOut()
-    navigate("/signin")
+    navigate("/")
   }
 
   return (
