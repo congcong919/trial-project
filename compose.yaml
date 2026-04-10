@@ -20,6 +20,8 @@ services:
     build: ./trial-backend
     ports:
       - "5000:5000"
+    env_file:
+      - ./trial-backend/.env
     environment:
       - MONGO_URL=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/trial-project?authSource=admin
       - REDIS_URL=redis://redis:6379
