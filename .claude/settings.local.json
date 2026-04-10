@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p features/auth features/todos pages/LandingPage styles)",
+      "Bash(mv pages/SignIn.jsx features/auth/SignIn.jsx)",
+      "Bash(mv pages/SignUp.jsx features/auth/SignUp.jsx)",
+      "Bash(mv components/TodoForm.jsx features/todos/TodoForm.jsx)",
+      "Bash(mv components/TodoList.jsx features/todos/TodoList.jsx)"
+    ]
+  }
+}

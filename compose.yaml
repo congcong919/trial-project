@@ -11,14 +11,21 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+
   backend:
     build: ./trial-backend
     ports:
       - "5000:5000"
     environment:
       - MONGO_URL=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/trial-project?authSource=admin
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - mongodb
+      - redis
 
   frontend:
     build: ./trial-frontend

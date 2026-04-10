@@ -1,6 +1,9 @@
 const express = require("express")
 const router = express.Router()
 const Todo = require("./models/Todo")
+const authMiddleware = require("./middleware/auth")
+
+router.use("/todos", authMiddleware)
 
 router.get("/todos", async (req, res) => {
   try {
