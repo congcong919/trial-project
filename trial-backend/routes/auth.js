@@ -28,13 +28,26 @@ function issueTokens(res, userId) {
   return accessToken
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 // POST /auth/register
 // Rate limiter applied here (not globally) so only auth endpoints are throttled.
 router.post("/register", authRegisterRateLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" })
+    const { name, email, password } = req.body
+
+    // Validate each field individually so the frontend can show a specific message.
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Full name is required" })
+    }
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" })
+    }
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" })
+    }
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" })
     }
     if (password.length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" })
@@ -42,24 +55,29 @@ router.post("/register", authRegisterRateLimiter, async (req, res) => {
 
     // Check Redis cache before hitting MongoDB — avoids a DB round-trip for
     // emails we know are already registered (cached for 1 hour after sign-up).
-    const cacheKey = `email_exists:${email}`
-    const cached = await redis.get(cacheKey)
-    if (cached) {
-      return res.status(409).json({ message: "Email already in use" })
-    }
+    // Redis failure is non-fatal: fall through to the DB check.
+    const cacheKey = `email_exists:${email.toLowerCase().trim()}`
+    try {
+      const cached = await redis.get(cacheKey)
+      if (cached) {
+        return res.status(409).json({ message: "This email is already registered" })
+      }
+    } catch { /* Redis unavailable — proceed to DB check */ }
 
     const existing = await User.findOne({ email })
     if (existing) {
-      return res.status(409).json({ message: "Email already in use" })
+      return res.status(409).json({ message: "This email is already registered" })
     }
 
     const hashed = await bcrypt.hash(password, 10)
-    const user = new User({ email, password: hashed })
+    const user = new User({ fullName: name.trim(), email, password: hashed })
     await user.save()
 
     // Cache the email so future duplicate sign-up attempts are short-circuited
-    // in Redis without touching the database.
-    await redis.set(cacheKey, '1', 'EX', EMAIL_CACHE_TTL)
+    // in Redis without touching the database. Non-fatal if Redis is unavailable.
+    try {
+      await redis.set(cacheKey, '1', 'EX', EMAIL_CACHE_TTL)
+    } catch { /* Redis unavailable — non-critical, proceed */ }
 
     // Enqueue the welcome email — fire and forget so the 201 is returned
     // immediately without waiting for the email provider to respond.
@@ -68,7 +86,12 @@ router.post("/register", authRegisterRateLimiter, async (req, res) => {
     const accessToken = issueTokens(res, user._id)
     res.status(201).json({ accessToken })
   } catch (err) {
-    res.status(500).json({ message: "Registration failed" })
+    // Mongo duplicate key — two concurrent requests both passed the Redis + DB
+    // check before either could save; treat identically to "already registered".
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "This email is already registered" })
+    }
+    res.status(500).json({ message: "Registration failed. Please try again." })
   }
 })
 
@@ -77,21 +100,29 @@ router.post("/register", authRegisterRateLimiter, async (req, res) => {
 router.post("/login", authLoginRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" })
+
+    // Validate each field individually so the frontend can show a specific message.
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" })
     }
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" })
+    }
+
     const user = await User.findOne({ email })
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" })
+      // Return the same message whether the email is unknown or the password is
+      // wrong — prevents user enumeration via differing error responses.
+      return res.status(401).json({ message: "Invalid email or password" })
     }
     const match = await bcrypt.compare(password, user.password)
     if (!match) {
-      return res.status(401).json({ message: "Invalid credentials" })
+      return res.status(401).json({ message: "Invalid email or password" })
     }
     const accessToken = issueTokens(res, user._id)
     res.json({ accessToken })
   } catch (err) {
-    res.status(500).json({ message: "Login failed" })
+    res.status(500).json({ message: "Login failed. Please try again." })
   }
 })
 
