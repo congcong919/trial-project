@@ -13,6 +13,11 @@ const createAuthRateLimiter = (name) =>
     legacyHeaders: false,
     skipSuccessfulRequests: true,
 
+
+    store: new RedisStore({
+      sendCommand: (...args) => redis.sendCommand(args),
+    }),
+
     keyGenerator: (req) => {
       const email = (req.body?.email || '').toLowerCase().trim()
       return `${name}:${req.ip}:${email}`
