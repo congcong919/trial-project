@@ -7,7 +7,7 @@
 
 /* ─── Left panel (form) ─────────────────────────────────── */
 .auth-left {
-  flex: 0 0 480px;
+  flex: 0 0 40%;
   display: flex;
   flex-direction: column;
   padding: 32px 48px;
@@ -57,7 +57,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  max-width: 360px;
+  max-width: 80%;
 }
 
 .auth-form-wrap h1 {
