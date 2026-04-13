@@ -16,7 +16,10 @@ require('./workers/emailWorker')
 const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017/todos"
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: [
+    process.env.CLIENT_URL || "http://localhost:5173",
+    process.env.CLOUDFRONT_URL,
+  ].filter(Boolean),
   credentials: true,
 }))
 app.use(cookieParser())

@@ -27,6 +27,8 @@ jobs:
       - name: Build
         working-directory: ./trial-frontend
         run: npm run build
+        env:
+          VITE_API_KEY: ${{ secrets.VITE_API_URL }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -64,6 +66,7 @@ jobs:
             git pull
             echo "MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}" > .env
             echo "MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}" >> .env
+            echo '${{ secrets.BACKEND_ENV }}' > ./trial-backend/.env
             docker-compose down
             docker-compose up -d --build
             echo "Deploy finished!"
