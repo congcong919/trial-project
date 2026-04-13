@@ -7,6 +7,7 @@ const app = express()
 
 const router = require('./router')
 const authRouter = require('./routes/auth')
+const errorHandler = require('./middleware/errorHandler')
 
 // Start the email worker alongside the server. In a scaled deployment this
 // would run as a separate process (e.g. a dedicated worker Dockerfile), but
@@ -27,6 +28,10 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
 app.use('/api/auth', authRouter)
 app.use('/api', router)
+
+// Must be registered after all routes — Express identifies error handlers by
+// the 4-argument signature (err, req, res, next).
+app.use(errorHandler)
 
 mongoose.connect(MONGO_URL)
   .then(() => console.log("MongoDB connection succeed"))

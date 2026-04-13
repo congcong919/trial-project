@@ -5,53 +5,41 @@ const jwt = require("jsonwebtoken")
 const User = require("../models/User")
 const redis = require("../config/redis")
 const emailQueue = require("../queues/emailQueue")
-const {authRegisterRateLimiter, authLoginRateLimiter} = require("../middleware/rateLimiter")
+const { authRegisterRateLimiter, authLoginRateLimiter } = require("../middleware/rateLimiter")
+const { ValidationError, ConflictError, UnauthorizedError } = require("../exceptions")
 
-const ACCESS_SECRET  = process.env.JWT_SECRET      || "access_secret_change_in_production"
-const REFRESH_SECRET = process.env.REFRESH_SECRET  || "refresh_secret_change_in_production"
+const ACCESS_SECRET  = process.env.JWT_SECRET     || "access_secret_change_in_production"
+const REFRESH_SECRET = process.env.REFRESH_SECRET || "refresh_secret_change_in_production"
 
 // TTL for the email-exists cache key (1 hour in seconds)
 const EMAIL_CACHE_TTL = 60 * 60
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function issueTokens(res, userId) {
-  const accessToken = jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: "15m" })
+  const accessToken  = jwt.sign({ userId }, ACCESS_SECRET,  { expiresIn: "15m" })
   const refreshToken = jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: "7d" })
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure:   process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: parseInt(process.env.REFRESH_COOKIE_MAX_AGE),
-    path: "/api/auth",
+    maxAge:   parseInt(process.env.REFRESH_COOKIE_MAX_AGE),
+    path:     "/api/auth",
   })
 
   return accessToken
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 // POST /auth/register
-// Rate limiter applied here (not globally) so only auth endpoints are throttled.
-router.post("/register", authRegisterRateLimiter, async (req, res) => {
+router.post("/register", authRegisterRateLimiter, async (req, res, next) => {
   try {
     const { name, email, password } = req.body
 
-    // Validate each field individually so the frontend can show a specific message.
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: "Full name is required" })
-    }
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" })
-    }
-    if (!EMAIL_RE.test(email)) {
-      return res.status(400).json({ message: "Please enter a valid email address" })
-    }
-    if (!password) {
-      return res.status(400).json({ message: "Password is required" })
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" })
-    }
+    if (!name || !name.trim())    throw new ValidationError("Full name is required")
+    if (!email)                   throw new ValidationError("Email is required")
+    if (!EMAIL_RE.test(email))    throw new ValidationError("Please enter a valid email address")
+    if (!password)                throw new ValidationError("Password is required")
+    if (password.length < 6)      throw new ValidationError("Password must be at least 6 characters")
 
     // Check Redis cache before hitting MongoDB — avoids a DB round-trip for
     // emails we know are already registered (cached for 1 hour after sign-up).
@@ -59,15 +47,14 @@ router.post("/register", authRegisterRateLimiter, async (req, res) => {
     const cacheKey = `email_exists:${email.toLowerCase().trim()}`
     try {
       const cached = await redis.get(cacheKey)
-      if (cached) {
-        return res.status(409).json({ message: "This email is already registered" })
-      }
-    } catch { /* Redis unavailable — proceed to DB check */ }
+      if (cached) throw new ConflictError("This email is already registered")
+    } catch (err) {
+      if (err instanceof ConflictError) throw err
+      // Redis unavailable — proceed to DB check
+    }
 
     const existing = await User.findOne({ email })
-    if (existing) {
-      return res.status(409).json({ message: "This email is already registered" })
-    }
+    if (existing) throw new ConflictError("This email is already registered")
 
     const hashed = await bcrypt.hash(password, 10)
     const user = new User({ fullName: name.trim(), email, password: hashed })
@@ -76,68 +63,55 @@ router.post("/register", authRegisterRateLimiter, async (req, res) => {
     // Cache the email so future duplicate sign-up attempts are short-circuited
     // in Redis without touching the database. Non-fatal if Redis is unavailable.
     try {
-      await redis.set(cacheKey, '1', 'EX', EMAIL_CACHE_TTL)
+      await redis.set(cacheKey, "1", "EX", EMAIL_CACHE_TTL)
     } catch { /* Redis unavailable — non-critical, proceed */ }
 
     // Enqueue the welcome email — fire and forget so the 201 is returned
     // immediately without waiting for the email provider to respond.
-    emailQueue.add('welcome', { email })
+    emailQueue.add("welcome", { email })
 
     const accessToken = issueTokens(res, user._id)
     res.status(201).json({ accessToken })
   } catch (err) {
-    // Mongo duplicate key — two concurrent requests both passed the Redis + DB
-    // check before either could save; treat identically to "already registered".
-    if (err.code === 11000) {
-      return res.status(409).json({ message: "This email is already registered" })
-    }
-    res.status(500).json({ message: "Registration failed. Please try again." })
+    next(err)
   }
 })
 
 // POST /auth/login
-// Rate limiter applied here to protect against brute-force password guessing.
-router.post("/login", authLoginRateLimiter, async (req, res) => {
+router.post("/login", authLoginRateLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body
 
-    // Validate each field individually so the frontend can show a specific message.
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" })
-    }
-    if (!password) {
-      return res.status(400).json({ message: "Password is required" })
-    }
+    if (!email)    throw new ValidationError("Email is required")
+    if (!password) throw new ValidationError("Password is required")
 
     const user = await User.findOne({ email })
     if (!user) {
       // Return the same message whether the email is unknown or the password is
       // wrong — prevents user enumeration via differing error responses.
-      return res.status(401).json({ message: "Invalid email or password" })
+      throw new UnauthorizedError("Invalid email or password")
     }
+
     const match = await bcrypt.compare(password, user.password)
-    if (!match) {
-      return res.status(401).json({ message: "Invalid email or password" })
-    }
+    if (!match) throw new UnauthorizedError("Invalid email or password")
+
     const accessToken = issueTokens(res, user._id)
     res.json({ accessToken })
   } catch (err) {
-    res.status(500).json({ message: "Login failed. Please try again." })
+    next(err)
   }
 })
 
-router.post("/refresh", (req, res) => {
+router.post("/refresh", (req, res, next) => {
   const token = req.cookies.refreshToken
-  if (!token) {
-    return res.status(401).json({ message: "No refresh token" })
-  }
+  if (!token) return next(new UnauthorizedError("No refresh token"))
   try {
     const decoded = jwt.verify(token, REFRESH_SECRET)
     const accessToken = issueTokens(res, decoded.userId)
     res.json({ accessToken })
   } catch {
     res.clearCookie("refreshToken", { path: "/api/auth" })
-    res.status(401).json({ message: "Invalid or expired refresh token" })
+    next(new UnauthorizedError("Invalid or expired refresh token"))
   }
 })
 
