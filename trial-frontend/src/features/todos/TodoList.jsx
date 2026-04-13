@@ -1,3 +1,5 @@
+import "./TodoList.css";
+
 function TodoList({ todos, onDeleteTodo, onToggleComplete }) {
   return (
     <ul className="todo-list">

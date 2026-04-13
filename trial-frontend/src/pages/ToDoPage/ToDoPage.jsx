@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
 import TodoForm from "../../features/todos/TodoForm"
 import TodoList from "../../features/todos/TodoList"
+import "../../styles/App.css"
+import "./ToDoPage.css"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 

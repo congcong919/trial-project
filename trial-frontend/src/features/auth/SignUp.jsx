@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
+import "../../styles/App.css"
+import "./Auth.css"
 
 const API_BASE_URL = import.meta.env.VITE_API_KEY
 
