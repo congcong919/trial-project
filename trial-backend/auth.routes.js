@@ -6,6 +6,8 @@ const User = require("./user/user.model")
 const redis = require("./config/redis")
 const emailQueue = require("./queues/emailQueue")
 const { authRegisterRateLimiter, authLoginRateLimiter } = require("./middleware/rateLimiter")
+const {loginSchema, registerSchema} = require("./utils/auth.validation")
+const {validate} = require("./middleware/auth.validation")
 const { ValidationError, ConflictError, UnauthorizedError } = require("./exceptions")
 
 const ACCESS_SECRET  = process.env.JWT_SECRET     || "access_secret_change_in_production"
@@ -31,15 +33,15 @@ function issueTokens(res, userId) {
 }
 
 // POST /auth/register
-router.post("/register", authRegisterRateLimiter, async (req, res, next) => {
+router.post("/register", authRegisterRateLimiter, validate(registerSchema),  async (req, res, next) => {
   try {
-    const { name, email, password } = req.body
+    const { fullName, email, password } = req.body
 
-    if (!name || !name.trim())    throw new ValidationError("Full name is required")
-    if (!email)                   throw new ValidationError("Email is required")
-    if (!EMAIL_RE.test(email))    throw new ValidationError("Please enter a valid email address")
-    if (!password)                throw new ValidationError("Password is required")
-    if (password.length < 6)      throw new ValidationError("Password must be at least 6 characters")
+    // if (!name || !name.trim())    throw new ValidationError("Full name is required")
+    // if (!email)                   throw new ValidationError("Email is required")
+    // if (!EMAIL_RE.test(email))    throw new ValidationError("Please enter a valid email address")
+    // if (!password)                throw new ValidationError("Password is required")
+    // if (password.length < 6)      throw new ValidationError("Password must be at least 6 characters")
 
     // Check Redis cache before hitting MongoDB — avoids a DB round-trip for
     // emails we know are already registered (cached for 1 hour after sign-up).
@@ -57,7 +59,7 @@ router.post("/register", authRegisterRateLimiter, async (req, res, next) => {
     if (existing) throw new ConflictError("This email is already registered")
 
     const hashed = await bcrypt.hash(password, 10)
-    const user = new User({ fullName: name.trim(), email, password: hashed })
+    const user = new User({ fullName, email, password: hashed, passwordHistory: [hashedPassword] })
     await user.save()
 
     // Cache the email so future duplicate sign-up attempts are short-circuited
@@ -78,12 +80,12 @@ router.post("/register", authRegisterRateLimiter, async (req, res, next) => {
 })
 
 // POST /auth/login
-router.post("/login", authLoginRateLimiter, async (req, res, next) => {
+router.post("/login", authLoginRateLimiter, validate(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body
 
-    if (!email)    throw new ValidationError("Email is required")
-    if (!password) throw new ValidationError("Password is required")
+    // if (!email)    throw new ValidationError("Email is required")
+    // if (!password) throw new ValidationError("Password is required")
 
     const user = await User.findOne({ email })
     if (!user) {

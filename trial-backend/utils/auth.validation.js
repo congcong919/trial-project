@@ -3,7 +3,7 @@ const { z } = require('zod');
 const emailSchema = z.email('Invalid email format').toLowerCase().trim();
 const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(6, 'Password must be at least 6 characters')
   .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
   .regex(/[0-9]/, 'Password must contain at least one number');
 
@@ -15,7 +15,7 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(6, 'at least 6 characters Password is required '),
 });
 
 // const forgotPasswordSchema = z.object({
