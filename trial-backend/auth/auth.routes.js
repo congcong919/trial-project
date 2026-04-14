@@ -4,9 +4,10 @@ const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const User = require("../user/user.model")
 const redis = require("../config/redis")
+const crypto = require('crypto');
 const emailQueue = require("../queues/emailQueue")
 const { authRegisterRateLimiter, authLoginRateLimiter, resetPasswordRateLimiter } = require("../middleware/rateLimiter")
-const {loginSchema, registerSchema} = require("../utils/auth.validation")
+const {loginSchema, registerSchema, forgotPasswordSchema, verifyCodeSchema, resetPasswordSchema} = require("../utils/auth.validation")
 const {validate} = require("../middleware/auth.validation")
 const { ValidationError, ConflictError, UnauthorizedError } = require("../exceptions")
 
