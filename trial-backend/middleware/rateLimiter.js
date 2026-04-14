@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit')
+const {rateLimit, ipKeyGenerator} = require('express-rate-limit')
 const { RedisStore } = require('rate-limit-redis')
 const redis = require('../config/redis')
 
@@ -15,12 +15,12 @@ const createAuthRateLimiter = (name) =>
 
 
     store: new RedisStore({
-      sendCommand: (...args) => redis.sendCommand(args),
+      sendCommand: (...args) => redis.call(...args),
     }),
 
     keyGenerator: (req) => {
       const email = (req.body?.email || '').toLowerCase().trim()
-      return `${name}:${req.ip}:${email}`
+      return `${name}:${ipKeyGenerator(req)}:${email}`
     },
     
     handler: (_req, res) => {

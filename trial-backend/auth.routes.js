@@ -59,7 +59,7 @@ router.post("/register", authRegisterRateLimiter, validate(registerSchema),  asy
     if (existing) throw new ConflictError("This email is already registered")
 
     const hashed = await bcrypt.hash(password, 10)
-    const user = new User({ fullName, email, password: hashed, passwordHistory: [hashedPassword] })
+    const user = new User({ fullName, email, password: hashed, passwordHistory: [hashed] })
     await user.save()
 
     // Cache the email so future duplicate sign-up attempts are short-circuited
