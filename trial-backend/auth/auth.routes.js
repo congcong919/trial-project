@@ -118,7 +118,7 @@ router.post('/forgot-password', resetPasswordRateLimiter, validate(forgotPasswor
   await user.save();
 
   // mock sending email action
-  logger.info('Password reset code sent');
+  console.log('Password reset code sent');
 
   res.json({
     success: true,
@@ -167,7 +167,7 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req, res) =
   for (const oldHash of user.passwordHistory) {
     const isSame = await bcrypt.compare(newPassword, oldHash);
     if (isSame) {
-      throw new ValidationException('New password must not be the same as the recent passwords');
+      throw new ValidationError('New password must not be the same as the recent passwords');
     }
   }
 
