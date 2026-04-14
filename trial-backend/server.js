@@ -6,7 +6,7 @@ const mongoose = require("mongoose")
 const app = express()
 
 const router = require('./router')
-const authRouter = require('./auth.routes')
+const authRouter = require('./auth/auth.routes')
 const errorHandler = require('./middleware/errorHandler')
 
 // Start the email worker alongside the server. In a scaled deployment this
