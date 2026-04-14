@@ -28,6 +28,27 @@ const createAuthRateLimiter = (name) =>
     },
   })
 
+  const resetPasswordRateLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 3,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skipSuccessfulRequests: false,
+  
+    store: new RedisStore({
+      sendCommand: (...args) => redis.call(...args),
+    }),
+  
+    keyGenerator: (req) => {
+      const email = (req.body?.email || '').toLowerCase().trim()
+      return `reset-password:${email}`
+    },
+  
+    handler: (_req, res) => {
+      res.status(429).json({ message: 'Too many attempts, please try again in 60 minutes' })
+    },
+  })
+
 const authRegisterRateLimiter = createAuthRateLimiter('register')
 const authLoginRateLimiter    = createAuthRateLimiter('login')
 
@@ -55,5 +76,6 @@ const authLoginRateLimiter    = createAuthRateLimiter('login')
 
 module.exports = {
   authRegisterRateLimiter,
-  authLoginRateLimiter
+  authLoginRateLimiter,
+  resetPasswordRateLimiter
 }

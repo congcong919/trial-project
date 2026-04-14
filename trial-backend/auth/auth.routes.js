@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken")
 const User = require("../user/user.model")
 const redis = require("../config/redis")
 const emailQueue = require("../queues/emailQueue")
-const { authRegisterRateLimiter, authLoginRateLimiter } = require("../middleware/rateLimiter")
+const { authRegisterRateLimiter, authLoginRateLimiter, resetPasswordRateLimiter } = require("../middleware/rateLimiter")
 const {loginSchema, registerSchema} = require("../utils/auth.validation")
 const {validate} = require("../middleware/auth.validation")
 const { ValidationError, ConflictError, UnauthorizedError } = require("../exceptions")
@@ -36,12 +36,6 @@ function issueTokens(res, userId) {
 router.post("/register", authRegisterRateLimiter, validate(registerSchema),  async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body
-
-    // if (!name || !name.trim())    throw new ValidationError("Full name is required")
-    // if (!email)                   throw new ValidationError("Email is required")
-    // if (!EMAIL_RE.test(email))    throw new ValidationError("Please enter a valid email address")
-    // if (!password)                throw new ValidationError("Password is required")
-    // if (password.length < 6)      throw new ValidationError("Password must be at least 6 characters")
 
     // Check Redis cache before hitting MongoDB — avoids a DB round-trip for
     // emails we know are already registered (cached for 1 hour after sign-up).
@@ -103,6 +97,94 @@ router.post("/login", authLoginRateLimiter, validate(loginSchema), async (req, r
     next(err)
   }
 })
+
+router.post('/forgot-password', resetPasswordRateLimiter, validate(forgotPasswordSchema), async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    // email is PII, must be hashed / masked
+    // logger.info()
+    return res.json({
+      success: true,
+      message: 'If the email exists, a verification vode has been sent',
+    });
+  }
+
+  const code = Math.random().toString().slice(2, 8);
+  // redis
+  user.resetCode = code;
+  user.resetCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  await user.save();
+
+  // mock sending email action
+  logger.info('Password reset code sent');
+
+  res.json({
+    success: true,
+    // message: 'Verification code sent',
+    data: {
+      code,
+    },
+  });
+});
+
+authRouter.post('/verify-code', validate(verifyCodeSchema), async (req, res) => {
+  const { email, code } = req.body;
+  const user = await User.findOne({ email });
+  // dayjs
+  console.log(
+    !user,
+    user.resetCode !== code,
+    user.resetCodeExpiry < new Date(),
+  );
+  if (!user || user.resetCode !== code || user.resetCodeExpiry < new Date()) {
+    throw new ValidationException('Invalid or expired code');
+  }
+  user.resetCode = undefined;
+  user.resetCodeExpiry = undefined;
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  user.resetToken = resetToken;
+  user.resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  await user.save();
+
+  res.json({
+    success: true,
+    data: {
+      resetToken,
+    },
+  });
+});
+
+authRouter.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+  const { resetToken, newPassword, email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user || user.resetToken !== resetToken || user.resetTokenExpiry < new Date()) {
+    throw new ValidationException('Expired token');
+    // BadRequest
+  }
+  for (const oldHash of user.passwordHistory) {
+    const isSame = await bcrypt.compare(newPassword, oldHash);
+    if (isSame) {
+      throw new ValidationException('New password must not be the same as the recent passwords');
+    }
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10)
+  user.password = hashedPassword;
+  user.resetToken = undefined;
+  user.resetTokenExpiry = undefined;
+  user.passwordHistory.push(hashedPassword);
+  if (user.passwordHistory.length > 5) {
+    user.passwordHistory = user.passwordHistory.shift();
+  }
+  await user.save();
+  console.log('Password reset successful', { userId: user._id });
+  res.json({
+    success: true,
+    message: 'Password reset successfully',
+  });
+});
 
 router.post("/refresh", (req, res, next) => {
   const token = req.cookies.refreshToken
