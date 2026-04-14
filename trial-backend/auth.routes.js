@@ -2,11 +2,11 @@ const express = require("express")
 const router = express.Router()
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
-const User = require("../models/User")
-const redis = require("../config/redis")
-const emailQueue = require("../queues/emailQueue")
-const { authRegisterRateLimiter, authLoginRateLimiter } = require("../middleware/rateLimiter")
-const { ValidationError, ConflictError, UnauthorizedError } = require("../exceptions")
+const User = require("./user/user.model")
+const redis = require("./config/redis")
+const emailQueue = require("./queues/emailQueue")
+const { authRegisterRateLimiter, authLoginRateLimiter } = require("./middleware/rateLimiter")
+const { ValidationError, ConflictError, UnauthorizedError } = require("./exceptions")
 
 const ACCESS_SECRET  = process.env.JWT_SECRET     || "access_secret_change_in_production"
 const REFRESH_SECRET = process.env.REFRESH_SECRET || "refresh_secret_change_in_production"
