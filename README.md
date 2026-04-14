@@ -11,7 +11,8 @@ CareerAI is a full-stack web application that helps users improve their resumes 
 - Landing page with product introduction
 - User registration and login with JWT authentication
 - Access token & refresh token stored in HTTP-only cookies (XSS protection)
-- Rate limiting to prevent brute-force attacks and spam registrations
+- Forgot password flow — email verification code dispatch, code verification, and password reset
+- Rate limiting to prevent brute-force attacks, spam registrations, and reset code flooding
 - Async post-registration flow with email notifications (BullMQ + Redis)
 - AI-powered chat interface for resume feedback (LLM integration)
 - Resume upload and analysis
@@ -28,7 +29,7 @@ CareerAI is a full-stack web application that helps users improve their resumes 
 
 **Backend**
 - Node.js + Express
-- RESTful API design with `/api` prefix
+- RESTful API with `/api` prefix
 - JWT authentication (access token + refresh token)
 - Rate limiting middleware
 - Error handling middleware
@@ -196,8 +197,12 @@ http://localhost
 | Method | Endpoint | Description |
 |--|--|--|
 | POST | /api/auth/register | Register a new user |
-| POST | /api/auth/login | Login and receive tokens |
+| POST | /api/auth/login | sign in and receive tokens |
+| POST | /api/auth/logout | sign out |
 | POST | /api/auth/refresh | Refresh access token using refresh token cookie |
+| POST | /api/auth/forgot-password | Send password reset code to email (rate limited) |
+| POST | /api/auth/verify-code | Verify the password reset code |
+| POST | /api/auth/reset-password | Reset password with verified code |
 
 > More endpoints will be added as features are developed.
 
@@ -224,7 +229,10 @@ After a user registers, a BullMQ job is dispatched to a Redis-backed queue. A ba
 
 ## Rate Limiting
 
-Express rate limiting middleware is applied to sensitive endpoints (register, login) to prevent brute-force attacks and automated spam.
+Express rate limiting middleware is applied to sensitive endpoints to prevent brute-force attacks and automated spam. Two separate limiters are configured:
+
+- **Auth endpoints** (`/register`, `/login`) — general per-IP limit to block credential stuffing and spam registrations
+- **`/forgot-password`** — stricter dedicated limit to prevent abuse of the email code dispatch (e.g. flooding a victim's inbox)
 
 ---
 
@@ -438,4 +446,4 @@ These secrets are set in the repository's **Settings → Secrets and variables �
 
 MIT
 
-## Last updated on 14/04/2026
+## Last updated on 15/04/2026
