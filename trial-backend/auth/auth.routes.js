@@ -129,7 +129,7 @@ router.post('/forgot-password', resetPasswordRateLimiter, validate(forgotPasswor
   });
 });
 
-authRouter.post('/verify-code', validate(verifyCodeSchema), async (req, res) => {
+router.post('/verify-code', validate(verifyCodeSchema), async (req, res) => {
   const { email, code } = req.body;
   const user = await User.findOne({ email });
   // dayjs
@@ -157,7 +157,7 @@ authRouter.post('/verify-code', validate(verifyCodeSchema), async (req, res) => 
   });
 });
 
-authRouter.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
   const { resetToken, newPassword, email } = req.body;
   const user = await User.findOne({ email });
   if (!user || user.resetToken !== resetToken || user.resetTokenExpiry < new Date()) {
