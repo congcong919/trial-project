@@ -98,6 +98,9 @@ export default function SignIn() {
               </button>
             </form>
             <p className="auth-switch">
+              <Link to="/forgot-password" className="auth-forgot">Forgot password?</Link>
+            </p>
+            <p className="auth-switch">
               Don&apos;t have an account?{" "}
               <Link to="/signup">Sign Up</Link>
             </p>
