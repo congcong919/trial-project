@@ -6,12 +6,50 @@ CareerAI is a full-stack web application that helps users improve their resumes 
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TD
+    User(["User browser"])
+
+    User -->|HTTPS| CF["CloudFront CDN\nCaches static assets · proxies /api/* to EC2"]
+
+    CF -->|Static assets| S3["AWS S3\nReact + Vite static build"]
+    CF -->|/api/* proxy| Express
+
+    subgraph EC2["EC2 · Ubuntu 22.04 · Docker Compose"]
+        Express["Node.js / Express\nJWT auth · rate limiting · REST API"]
+
+        Express --> MongoDB["MongoDB 7\nUsers · sessions"]
+        Express --> Redis["Redis 7\nQueue · caching"]
+
+        Redis --> Worker["BullMQ worker\nAsync email dispatch"]
+    end
+
+    Worker --> SMTP["SendGrid SMTP"]
+
+    subgraph CICD["GitHub Actions CI/CD — triggered on push to main"]
+        FE["deploy-frontend\nVite build → S3 sync → CloudFront invalidation"]
+        BE["deploy-backend\nSSH into EC2 → git pull → docker compose up"]
+    end
+
+    FE -.->|deploys to| S3
+    BE -.->|deploys to| EC2
+```
+
+> **Note:** All external traffic enters through CloudFront. The EC2 Security Group accepts inbound requests from CloudFront IP ranges only — the backend is never directly reachable from the public internet.
+
+---
+
 ## Features
 
 - Landing page with product introduction
 - User registration and login with JWT authentication
 - Access token & refresh token stored in HTTP-only cookies (XSS protection)
 - Forgot password flow — email verification code dispatch, code verification, and password reset
+- 6-digit OTP input with auto-focus, auto-advance, and paste support
+- SendGrid email integration with dynamic templates for welcome and password reset emails
+- Redis cache layer on registration to short-circuit duplicate email checks without hitting MongoDB
 - Rate limiting to prevent brute-force attacks, spam registrations, and reset code flooding
 - Async post-registration flow with email notifications (BullMQ + Redis)
 - AI-powered chat interface for resume feedback (LLM integration)
@@ -41,7 +79,12 @@ CareerAI is a full-stack web application that helps users improve their resumes 
 - Redis for job queue and caching
 
 **Queue**
-- BullMQ + Redis for async job processing (e.g. post-registration email dispatch)
+- BullMQ + Redis for async job processing (e.g. post-registration welcome email, password reset code dispatch)
+
+**Email**
+- SendGrid transactional email with dynamic templates
+- Welcome email dispatched asynchronously via BullMQ after registration
+- Password reset code email dispatched via BullMQ on forgot-password request
 
 **Testing** *(planned)*
 - Jest + Supertest for backend unit and integration tests
@@ -58,7 +101,7 @@ CareerAI is a full-stack web application that helps users improve their resumes 
 - AWS EC2 with Elastic IP (backend + database + Redis)
 - AWS S3 + CloudFront (frontend)
 - GitHub Actions CI/CD pipeline
-- EC2 Security Group configured to accept only CloudFront API proxy traffic
+- EC2 Security Group configured to accept only CloudFront IP ranges
 
 ---
 
@@ -101,7 +144,7 @@ trial-project/
     utils/
       auth.validation.js     # Shared auth validation helpers
     workers/
-      emailWorker.js         # BullMQ worker: async email dispatch
+      emailWorker.js         # BullMQ worker: SendGrid email dispatch
   trial-frontend/
     Dockerfile
     nginx.conf               # Local dev reverse proxy config
@@ -120,6 +163,9 @@ trial-project/
         auth/
           SignIn.jsx         # Login form
           SignUp.jsx         # Registration form
+          ForgotPassword.jsx # Email input — triggers reset code dispatch
+          VerifyCode.jsx     # 6-digit OTP input with auto-focus and paste support
+          ResetPassword.jsx  # New password input with confirmation
           Auth.css
         todos/               # (legacy - to be removed)
           TodoForm.jsx
@@ -171,9 +217,10 @@ MONGO_PASSWORD=yourpassword
 JWT_ACCESS_SECRET=your_access_secret
 JWT_REFRESH_SECRET=your_refresh_secret
 REDIS_URL=redis://redis:6379
-EMAIL_HOST=smtp.example.com
-EMAIL_USER=your@email.com
-EMAIL_PASS=yourpassword
+SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxx
+EMAIL_FROM=your@email.com
+SENDGRID_TEMPLATE_ID_WELCOME=d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SENDGRID_TEMPLATE_ID_RESET=d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 3. Start all services
@@ -197,8 +244,8 @@ http://localhost
 | Method | Endpoint | Description |
 |--|--|--|
 | POST | /api/auth/register | Register a new user |
-| POST | /api/auth/login | sign in and receive tokens |
-| POST | /api/auth/logout | sign out |
+| POST | /api/auth/login | Sign in and receive tokens |
+| POST | /api/auth/logout | Sign out |
 | POST | /api/auth/refresh | Refresh access token using refresh token cookie |
 | POST | /api/auth/forgot-password | Send password reset code to email (rate limited) |
 | POST | /api/auth/verify-code | Verify the password reset code |
@@ -218,6 +265,31 @@ JWT-based authentication is implemented with two tokens:
 Storing tokens in HTTP-only cookies prevents JavaScript access, protecting against XSS attacks. The refresh token flow allows seamless session renewal without requiring the user to re-login.
 
 React Context API wraps the entire application and manages auth state, providing login, logout, and token refresh logic to all child components.
+
+---
+
+## Password Reset Flow
+
+The full forgot-password flow is implemented across three pages and three API endpoints:
+
+1. **ForgotPassword** — user enters their email, a 6-digit reset code is generated and dispatched via SendGrid through BullMQ
+2. **VerifyCode** — user enters the 6-digit OTP; the input supports auto-advance on each digit and full paste support for copying codes directly from email
+3. **ResetPassword** — user sets a new password; the backend validates the verified code token before accepting the change
+
+Reset codes are short-lived and rate limited to prevent abuse.
+
+---
+
+## Email
+
+SendGrid is used for all transactional emails. Emails are dispatched asynchronously via BullMQ workers so API response times are never blocked by email delivery.
+
+Two dynamic templates are configured in SendGrid:
+
+- **Welcome email** — sent after registration, includes the user's name via `{{fullName}}`
+- **Password reset email** — sent on forgot-password request, includes the reset code via `{{code}}`
+
+The worker retries failed jobs up to 3 times with exponential backoff before marking them as failed.
 
 ---
 
@@ -316,17 +388,21 @@ All AWS credentials, SSH keys, and environment values are stored as GitHub Actio
 Add the following secrets to your GitHub repository:
 
 ```
-SSH_PRIVATE_KEY                - EC2 private key
-SSH_HOST                       - EC2 Elastic IP
-SSH_USERNAME                   - ubuntu
-MONGO_USERNAME                 - MongoDB username
-MONGO_PASSWORD                 - MongoDB password
-JWT_ACCESS_SECRET              - JWT access token secret
-JWT_REFRESH_SECRET             - JWT refresh token secret
-AWS_ACCESS_KEY_ID              - IAM Access key
-AWS_SECRET_ACCESS_KEY          - IAM Secret key
-AWS_CLOUDFRONT_DISTRIBUTION_ID - CloudFront Distribution ID
-S3_BUCKET_NAME                 - S3 bucket name
+SSH_PRIVATE_KEY                      - EC2 private key
+SSH_HOST                             - EC2 Elastic IP
+SSH_USERNAME                         - ubuntu
+MONGO_USERNAME                       - MongoDB username
+MONGO_PASSWORD                       - MongoDB password
+JWT_ACCESS_SECRET                    - JWT access token secret
+JWT_REFRESH_SECRET                   - JWT refresh token secret
+AWS_ACCESS_KEY_ID                    - IAM Access key
+AWS_SECRET_ACCESS_KEY                - IAM Secret key
+AWS_CLOUDFRONT_DISTRIBUTION_ID       - CloudFront Distribution ID
+S3_BUCKET_NAME                       - S3 bucket name
+SENDGRID_API_KEY                     - SendGrid API key
+EMAIL_FROM                           - Verified sender email address
+SENDGRID_TEMPLATE_ID_WELCOME         - SendGrid welcome email template ID
+SENDGRID_TEMPLATE_ID_RESET           - SendGrid password reset email template ID
 ```
 
 ---
@@ -339,6 +415,7 @@ S3_BUCKET_NAME                 - S3 bucket name
 - JWT tokens stored in HTTP-only cookies (no JavaScript access)
 - Rate limiting applied to auth endpoints
 - SSH tunneling required to access MongoDB or Redis locally
+- Password reset codes are short-lived and single-use
 
 ### SSH Tunnel (MongoDB Compass access)
 
@@ -382,6 +459,10 @@ mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/trial-project?authSo
 | `REFRESH_COOKIE_MAX_AGE` | Refresh token cookie max age in milliseconds | `604800000` (7 days) |
 | `CLOUDFRONT_URL` | Allowed CORS origin (CloudFront frontend URL) | `https://xxxx.cloudfront.net` |
 | `REDIS_URL` | Redis connection URL — injected by compose in production | `redis://redis:6379` |
+| `SENDGRID_API_KEY` | SendGrid API key for transactional email | `SG.xxxxxxxxxx` |
+| `EMAIL_FROM` | Verified sender address | `you@gmail.com` |
+| `SENDGRID_TEMPLATE_ID_WELCOME` | SendGrid dynamic template ID for welcome email | `d-xxxxxxxx` |
+| `SENDGRID_TEMPLATE_ID_RESET` | SendGrid dynamic template ID for password reset email | `d-xxxxxxxx` |
 
 > In production, `MONGO_URL` and `REDIS_URL` are injected directly by `compose.yaml` via the `environment` block, overriding whatever is in the `.env` file.
 
