@@ -1,6 +1,11 @@
 const { Worker } = require('bullmq')
 const { Redis } = require('ioredis')
 
+
+const sgMail = require('@sendgrid/mail')
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+
 // Separate connection for the worker — BullMQ workers use blocking Redis
 // commands (BLPOP) to wait for jobs, which requires maxRetriesPerRequest: null
 // so ioredis never gives up waiting for a response.
@@ -8,13 +13,22 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', 
   maxRetriesPerRequest: null,
 })
 
+
 // Process one job at a time. Replace the console.log with a real email
 // provider call (e.g. SendGrid, AWS SES) when the service is ready.
 const worker = new Worker(
   'email',
   async (job) => {
-    const { email } = job.data
+    const { email, fullName } = job.data
     // TODO: swap this stub for an actual email SDK call
+    await sgMail.send({
+      to: email,
+      from: process.env.EMAIL_FROM,
+      templateId: process.env.SENDGRID_TEMPLATE_ID,  // 替换掉 subject/text/html
+      dynamicTemplateData: {
+        fullName: fullName
+      },
+    })
     console.log(`[emailWorker] Sending welcome email to ${email} (job ${job.id})`)
   },
   { connection }
