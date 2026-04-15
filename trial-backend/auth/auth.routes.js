@@ -65,7 +65,7 @@ router.post("/register", authRegisterRateLimiter, validate(registerSchema),  asy
 
     // Enqueue the welcome email — fire and forget so the 201 is returned
     // immediately without waiting for the email provider to respond.
-    emailQueue.add("welcome", { email })
+    emailQueue.add("welcome", { email, fullName })
 
     const accessToken = issueTokens(res, user._id)
     res.status(201).json({ accessToken })
@@ -117,74 +117,71 @@ router.post('/forgot-password', resetPasswordRateLimiter, validate(forgotPasswor
   user.resetCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  // mock sending email action
-  console.log('Password reset code sent');
+  emailQueue.add('reset-code', { email, code })
 
   res.json({
     success: true,
-    // message: 'Verification code sent',
-    data: {
-      code,
-    },
+    message: 'If the email exists, a verification code has been sent',
   });
 });
 
-router.post('/verify-code', validate(verifyCodeSchema), async (req, res) => {
-  const { email, code } = req.body;
-  const user = await User.findOne({ email });
-  // dayjs
-  console.log(
-    !user,
-    user.resetCode !== code,
-    user.resetCodeExpiry < new Date(),
-  );
-  if (!user || user.resetCode !== code || user.resetCodeExpiry < new Date()) {
-    throw new ValidationException('Invalid or expired code');
-  }
-  user.resetCode = undefined;
-  user.resetCodeExpiry = undefined;
-
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  user.resetToken = resetToken;
-  user.resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
-  await user.save();
-
-  res.json({
-    success: true,
-    data: {
-      resetToken,
-    },
-  });
-});
-
-router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
-  const { resetToken, newPassword, email } = req.body;
-  const user = await User.findOne({ email });
-  if (!user || user.resetToken !== resetToken || user.resetTokenExpiry < new Date()) {
-    throw new ValidationException('Expired token');
-    // BadRequest
-  }
-  for (const oldHash of user.passwordHistory) {
-    const isSame = await bcrypt.compare(newPassword, oldHash);
-    if (isSame) {
-      throw new ValidationError('New password must not be the same as the recent passwords');
+router.post('/verify-code', validate(verifyCodeSchema), async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || user.resetCode !== code || user.resetCodeExpiry < new Date()) {
+      throw new ValidationError('Invalid or expired code');
     }
-  }
+    user.resetCode = undefined;
+    user.resetCodeExpiry = undefined;
 
-  const hashedPassword = await bcrypt.hash(newPassword, 10)
-  user.password = hashedPassword;
-  user.resetToken = undefined;
-  user.resetTokenExpiry = undefined;
-  user.passwordHistory.push(hashedPassword);
-  if (user.passwordHistory.length > 5) {
-    user.passwordHistory = user.passwordHistory.shift();
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    res.json({
+      success: true,
+      data: {
+        resetToken,
+      },
+    });
+  } catch (err) {
+    next(err);
   }
-  await user.save();
-  console.log('Password reset successful', { userId: user._id });
-  res.json({
-    success: true,
-    message: 'Password reset successfully',
-  });
+});
+
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res, next) => {
+  try {
+    const { resetToken, newPassword, email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || user.resetToken !== resetToken || user.resetTokenExpiry < new Date()) {
+      throw new ValidationError('Expired token');
+    }
+    for (const oldHash of user.passwordHistory) {
+      const isSame = await bcrypt.compare(newPassword, oldHash);
+      if (isSame) {
+        throw new ValidationError('New password must not be the same as the recent passwords');
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    user.password = hashedPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    user.passwordHistory.push(hashedPassword);
+    if (user.passwordHistory.length > 5) {
+      user.passwordHistory.shift();
+    }
+    await user.save();
+    console.log('Password reset successful', { userId: user._id });
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/refresh", (req, res, next) => {
