@@ -117,15 +117,11 @@ router.post('/forgot-password', resetPasswordRateLimiter, validate(forgotPasswor
   user.resetCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  // mock sending email action
-  console.log('Password reset code sent');
+  emailQueue.add('reset-code', { email, code })
 
   res.json({
     success: true,
-    // message: 'Verification code sent',
-    data: {
-      code,
-    },
+    message: 'If the email exists, a verification code has been sent',
   });
 });
 

@@ -14,22 +14,28 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', 
 })
 
 
-// Process one job at a time. Replace the console.log with a real email
-// provider call (e.g. SendGrid, AWS SES) when the service is ready.
 const worker = new Worker(
   'email',
   async (job) => {
-    const { email, fullName } = job.data
-    // TODO: swap this stub for an actual email SDK call
-    await sgMail.send({
-      to: email,
-      from: process.env.EMAIL_FROM,
-      templateId: process.env.SENDGRID_TEMPLATE_ID,  // 替换掉 subject/text/html
-      dynamicTemplateData: {
-        fullName: fullName
-      },
-    })
-    console.log(`[emailWorker] Sending welcome email to ${email} (job ${job.id})`)
+    if (job.name === 'welcome') {
+      const { email, fullName } = job.data
+      await sgMail.send({
+        to: email,
+        from: process.env.EMAIL_FROM,
+        templateId: process.env.SENDGRID_TEMPLATE_Registration_ID,
+        dynamicTemplateData: { fullName },
+      })
+      console.log(`[emailWorker] Welcome email sent to ${email} (job ${job.id})`)
+    } else if (job.name === 'reset-code') {
+      const { email, code } = job.data
+      await sgMail.send({
+        to: email,
+        from: process.env.EMAIL_FROM,
+        templateId: process.env.SENDGRID_TEMPLATE_ResetPassword_ID,
+        dynamicTemplateData: { code }
+      })
+      console.log(`[emailWorker] Reset-code email sent to ${email} (job ${job.id})`)
+    }
   },
   { connection }
 )
