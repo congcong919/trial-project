@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.73.1",
     "cookie-parser": "^1.4.7",
