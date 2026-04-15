@@ -1,0 +1,27 @@
+.input-section {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.input-section input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.input-section button {
+  padding: 12px 18px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.input-section button:hover {
+  opacity: 0.9;
+}

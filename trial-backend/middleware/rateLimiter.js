@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit')
+const {rateLimit, ipKeyGenerator} = require('express-rate-limit')
 const { RedisStore } = require('rate-limit-redis')
 const redis = require('../config/redis')
 
@@ -13,13 +13,39 @@ const createAuthRateLimiter = (name) =>
     legacyHeaders: false,
     skipSuccessfulRequests: true,
 
+
+    store: new RedisStore({
+      sendCommand: (...args) => redis.call(...args),
+    }),
+
     keyGenerator: (req) => {
       const email = (req.body?.email || '').toLowerCase().trim()
-      return `${name}:${req.ip}:${email}`
+      return `${name}:${ipKeyGenerator(req)}:${email}`
     },
     
     handler: (_req, res) => {
       res.status(429).json({ message: 'Too many attempts, please try again in 15 minutes' })
+    },
+  })
+
+  const resetPasswordRateLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 3,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skipSuccessfulRequests: false,
+  
+    store: new RedisStore({
+      sendCommand: (...args) => redis.call(...args),
+    }),
+  
+    keyGenerator: (req) => {
+      const email = (req.body?.email || '').toLowerCase().trim()
+      return `reset-password:${email}`
+    },
+  
+    handler: (_req, res) => {
+      res.status(429).json({ message: 'Too many attempts, please try again in 60 minutes' })
     },
   })
 
@@ -50,5 +76,6 @@ const authLoginRateLimiter    = createAuthRateLimiter('login')
 
 module.exports = {
   authRegisterRateLimiter,
-  authLoginRateLimiter
+  authLoginRateLimiter,
+  resetPasswordRateLimiter
 }
