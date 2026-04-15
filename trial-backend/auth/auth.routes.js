@@ -65,7 +65,7 @@ router.post("/register", authRegisterRateLimiter, validate(registerSchema),  asy
 
     // Enqueue the welcome email — fire and forget so the 201 is returned
     // immediately without waiting for the email provider to respond.
-    emailQueue.add("welcome", { email })
+    emailQueue.add("welcome", { email, fullName })
 
     const accessToken = issueTokens(res, user._id)
     res.status(201).json({ accessToken })
