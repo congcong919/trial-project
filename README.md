@@ -1,8 +1,11 @@
 # CareerAI — AI-Powered Resume Assistant
 
-CareerAI is a full-stack web application that helps users improve their resumes through AI-driven conversations. Upload your resume, chat with an LLM, and receive tailored suggestions — all within a secure, authenticated platform.
+CareerAI is a full-stack web application built to demonstrate end-to-end engineering capability — spanning frontend, backend, testing, deployment, and CI/CD automation. The platform is designed around an AI-driven resume assistant, where users can upload their resume, chat with an LLM, and receive tailored improvement suggestions within a secure, authenticated environment.
 
 🌐 **Live:** [https://d3g2bs3w8mqk4z.cloudfront.net](https://d3g2bs3w8mqk4z.cloudfront.net)
+
+> **Test account:** 1349030761@qq.com / `a123456`
+> *(SendGrid free trial may have expired — contact congcong.zhao0919@gmail.com if you encounter sign-up or password reset issues.)*
 
 ---
 
