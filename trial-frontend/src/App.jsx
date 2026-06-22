@@ -7,7 +7,7 @@ import ForgotPassword from "./features/auth/ForgotPassword"
 import VerifyCode from "./features/auth/VerifyCode"
 import ResetPassword from "./features/auth/ResetPassword"
 import LandingPage from "./pages/LandingPage/LandingPage"
-import ToDoPage from "./pages/ToDoPage/ToDoPage"
+import ComingSoonPage from "./pages/ComingSoonPage/ComingSoonPage"
 
 function App() {
   const { isAuthenticated, authReady } = useAuth()
@@ -20,24 +20,24 @@ function App() {
     <Routes>
       <Route
         path="/"
-        element={isAuthenticated ? <Navigate to="/todos" replace /> : <LandingPage />}
+        element={isAuthenticated ? <Navigate to="/home" replace /> : <LandingPage />}
       />
       <Route
         path="/signin"
-        element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignIn />}
+        element={isAuthenticated ? <Navigate to="/home" replace /> : <SignIn />}
       />
       <Route
         path="/signup"
-        element={isAuthenticated ? <Navigate to="/todos" replace /> : <SignUp />}
+        element={isAuthenticated ? <Navigate to="/home" replace /> : <SignUp />}
       />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-code" element={<VerifyCode />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route
-        path="/todos"
-        element={isAuthenticated ? <ToDoPage /> : <Navigate to="/" />}
+        path="/home"
+        element={isAuthenticated ? <ComingSoonPage /> : <Navigate to="/" />}
       />
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/todos" : "/"} replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/home" : "/"} replace />} />
     </Routes>
   )
 }
